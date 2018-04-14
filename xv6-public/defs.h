@@ -170,7 +170,7 @@ void            idtinit(void);
 extern uint     ticks;
 void            tvinit(void);
 extern struct spinlock tickslock;
-
+int             allocateStack(pte_t*);
 // uart.c
 void            uartinit(void);
 void            uartintr(void);

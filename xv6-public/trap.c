@@ -299,7 +299,7 @@ pte_t* swapout(){
 	*/
 	
 	
-	#ifdef FIFO
+	//#ifdef FIFO
 	pte_t* ret = myproc()->victims[myproc()->head].pte;
 	myproc()->victims[myproc()->head].inStack = 0;
 	if(myproc()->victims[myproc()->head].next < 0)
@@ -307,7 +307,7 @@ pte_t* swapout(){
 	myproc()->victims[myproc()->victims[myproc()->head].next].previous = -1;
 	myproc()->head = myproc()->victims[myproc()->head].next;
 	return ret;
-	#endif
+	//#endif
 }
 
 
@@ -348,8 +348,8 @@ int allocateStack(pte_t* pte1){
 	return -2;
 	#endif
 	*/
-	
-	#ifdef FIFO
+
+
 	int i;
 	int b=0;
 	for(i=0; i<15; i++){
@@ -384,5 +384,5 @@ int allocateStack(pte_t* pte1){
 		}
 	}	
 	return -2;
-	#endif
+
 }
