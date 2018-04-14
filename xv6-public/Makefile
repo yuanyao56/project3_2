@@ -175,6 +175,7 @@ UPROGS=\
 	_wc\
 	_zombie\
 	_test\
+	_myMemTest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

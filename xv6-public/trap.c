@@ -54,12 +54,16 @@ trap(struct trapframe *tf)
     return;
   }
   if(tf->trapno == T_PGFLT) {
+	cprintf("pagefault++++++++++++++++++++++++++\n");
 	uint va=rcr2();
 	myproc()->pagefault++;
-        dumppte(myproc());
+        //dumppte(myproc());
+	uint needswapin=0;
+        uint swapinloc=0;
+	char *swapoutbuf=kalloc();
        if(myproc()->pagenum>=MAX_TOTAL_PAGES){
 	   kill(myproc()->pid);
-	   cprintf("here kill%d\n",myproc()->pid);
+	   //cprintf("here kill %d\n",myproc()->pid);
 	   return ;
         }
         pte_t* pte;
@@ -70,7 +74,10 @@ trap(struct trapframe *tf)
             myproc()->pagenum++;
         }else{
 	   //store swap in content in buffer first
-	   uint swapinloc=(PTE_ADDR(*pte)>>12)&0xFFFF;
+	   needswapin=1;
+	   cprintf("want to swap in\n");
+	   swapinloc=(PTE_ADDR(*pte)>>12)&0xFFFFF;
+	   cprintf("read offset%x\n",swapinloc);
            readFromSwapFile(myproc(),swapinbuf,swapinloc,PGSIZE);
 	}
 	//dumppte(myproc());
@@ -89,7 +96,7 @@ trap(struct trapframe *tf)
 	   //cprintf("newpage\n");
 
             uint a = PGROUNDDOWN(va);
-	   // cprintf("%x	%x\n",a,V2P(mem));
+	    //cprintf("%x	%x\n",a,V2P(mem));
 	    // cprintf("%s %d %d\n",myproc()->name,myproc()->sz,myproc()->pid);
             mappages(myproc()->pgdir, (char*) a, PGSIZE, V2P(mem), PTE_W | PTE_U);
 	    //uint z=*pte;
@@ -98,36 +105,53 @@ trap(struct trapframe *tf)
 	
 	 else{
            //choose a victim to swap out
-           cprintf("swapout\n");
+           
+	   
+	   cprintf("swapout faultedpt %x\n",pte);
            myproc()->totalpageout++;
 	    pte_t* outpage=swapout();
-	    writeToSwapFile(myproc(),(char *)PTE_ADDR(*outpage),myproc()->swaploc,PGSIZE);
+	    uint outaddr=*outpage;
+	    cprintf("swqpoupte %x\n",outpage);
+	    cprintf("swqpouptebefore %x\n",*outpage);
+	    cprintf("swqpouloc %x\n",myproc()->swaploc);
+	    if(!needswapin){
+	    writeToSwapFile(myproc(),(char *)V2P(PTE_ADDR(*outpage)),myproc()->swaploc,PGSIZE);
 	    *outpage=PTE_FLAGS(*outpage)|(myproc()->swaploc<<12);
+	    cprintf("swqpoupteafter %x\n",outpage);
 	    myproc()->swaploc+=PGSIZE;
-	    
+	    }else{
+		cprintf("sepcial swapout to %x\n",swapinloc);
+		memmove(swapoutbuf,(char *)V2P(PTE_ADDR(*outpage)),PGSIZE);
+		writeToSwapFile(myproc(),swapoutbuf,swapinloc,PGSIZE);
+		*outpage=PTE_FLAGS(*outpage)|(swapinloc<<12);
+ 	    }
 	   //update flag
 	   *outpage&=~PTE_P;
 	   *outpage|=PTE_PG;
-	   //cprintf("swapout\n");
+	   cprintf("swqpoupteafter %x\n",*outpage);
+	   cprintf("swapout\n");
 	   uint a = PGROUNDDOWN(va);
-           mappages(myproc()->pgdir, (char*) a, PGSIZE, PTE_ADDR(*outpage), PTE_W | PTE_U);
+           mappages(myproc()->pgdir, (char*) a, PGSIZE, (PTE_ADDR(outaddr)), PTE_W | PTE_U);
+	   //cprintf("mappage success\n");
         }
 	
         //check for swapin
         //cprintf("%x\n",PTE_ADDR(*pte));
-        
-        if(!((*pte)&PTE_PG)){
+        //pte=walkpgdir(myproc()->pgdir,(void *)va,0);
+        if(!needswapin){
 	//no need for swap in, clear contents
-	   //cprintf("HERE!!!!");
-            memset((void *)(P2V(PTE_ADDR(*pte))),0,PGSIZE);
+	  // cprintf("NOTSWAPIN\n");
+            memset((void *)P2V((PTE_ADDR(*pte))),0,PGSIZE);
         }else{
 	//swap in contents
-	   //cprintf("sssssss");
+	   cprintf("SWAPIN");
            char * swapindest=(char *)PTE_ADDR(*pte);
 	   memmove(P2V(swapindest),swapinbuf,PGSIZE);
+	   //writeToSwapFile(myproc(),swapoutbuf,myproc()->swaploc,PGSIZE);
+
 	   kfree(swapinbuf);
         }
-
+	cprintf("pageoutsolve-----------------------\n\n");
 	return ;
 	
 
